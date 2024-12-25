@@ -1,6 +1,24 @@
 use colored::{Color, ColoredString, Colorize};
 use image::{DynamicImage, GenericImageView, Pixel, Rgb};
 
+pub fn brighten(img: DynamicImage) -> DynamicImage {
+    let mut alpha_matrix: Vec<f32> = Vec::new();
+    for pixel in img.pixels() {
+        let rgb = pixel.2.to_rgb();
+        let alpha = get_perceived_brightness(&rgb);
+        alpha_matrix.push(alpha);
+    }
+
+    alpha_matrix.sort_by(|a, b| a.total_cmp(b));
+    let median_alpha = alpha_matrix[alpha_matrix.len() / 2];
+    let alpha_offset = (255 / 2) as f32 - median_alpha;
+    img.brighten(alpha_offset as i32)
+}
+
+fn get_perceived_brightness(rgb: &Rgb<u8>) -> f32 {
+    rgb.0[0] as f32 * 0.299 + rgb.0[1] as f32 * 0.587 + rgb.0[2] as f32 * 0.114
+}
+
 #[derive(Debug)]
 struct AsciiConf {
     width: u32,
@@ -8,15 +26,9 @@ struct AsciiConf {
 }
 
 #[derive(Debug)]
-struct AsciiPixel {
+pub struct AsciiPixel {
     alpha: f32,
     color: Color,
-}
-
-impl AsciiPixel {
-    fn get_perceived_brightness(rgb: &Rgb<u8>) -> f32 {
-        rgb.0[0] as f32 * 0.299 + rgb.0[1] as f32 * 0.587 + rgb.0[2] as f32 * 0.114
-    }
 }
 
 #[derive(Debug)]
@@ -37,10 +49,10 @@ impl AsciiArt {
         }
     }
 
-    pub fn draw(&mut self, image: &DynamicImage) {
+    pub fn construct_pixels_from_img(&mut self, image: &DynamicImage) {
         for pixel in image.pixels() {
             let rgb = pixel.2.to_rgb();
-            let alpha = AsciiPixel::get_perceived_brightness(&rgb);
+            let alpha = get_perceived_brightness(&rgb);
             let ascii_pixel = AsciiPixel {
                 alpha: alpha / 255f32,
                 color: Color::TrueColor {
@@ -53,7 +65,7 @@ impl AsciiArt {
         }
     }
 
-    pub fn print(&self) {
+    pub fn draw(&self) {
         let mut row_count = 0;
         for pixel in &self.matrix {
             row_count += 1;
